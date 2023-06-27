@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const puppeteer = require('puppeteer');
+const fs = require('fs');
 
 async function loginTwitter() {
   const browser = await puppeteer.launch({ headless: false });
@@ -32,6 +33,39 @@ async function loginTwitter() {
   });
 
   await page.waitForNavigation();
+  await page.waitForTimeout(5000);
+  const advertisers = new Set();
+
+  while (advertisers.size < 10) {
+    await page.evaluate(() => {
+      window.scrollBy(0, window.innerHeight);
+    });
+
+    const tweetUrls = await page.evaluate(() => {
+      const tweetNodes = Array.from(document.querySelectorAll('article'));
+      const urls = [];
+
+      tweetNodes.forEach(node => {
+        if (node.innerHTML.includes('Promoted')) {
+          const anchorTags = node.querySelectorAll('a');
+          anchorTags.forEach(anchor => {
+            const url = anchor.getAttribute('href');
+            if (url && url.match(/^\/[a-zA-Z0-9_]+$/)) {
+              urls.push(url.replace('/', ''));
+            }
+          });
+        }
+      });
+
+      return urls;
+    });
+
+    tweetUrls.forEach(url => {
+      advertisers.add(url);
+    });
+  }
+
+  console.log(advertisers);
 }
 
 loginTwitter();
