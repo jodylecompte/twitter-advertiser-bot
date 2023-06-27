@@ -2,6 +2,10 @@ require('dotenv').config();
 
 const puppeteer = require('puppeteer');
 
+const HANDLES_PER_RUN = 10; // How many users to find before proceeding with block phase
+const DELAY_LOGIN = 2000; // Delay before pressing login button after each step
+
+
 const execute = async () => {
   const browser = await puppeteer.launch({ headless: false });
   const page = await browser.newPage();
@@ -11,11 +15,11 @@ const execute = async () => {
   while (true) {
     const advertisers = new Set();
     await findAdvertisers(page, advertisers);
+    console.log(advertisers);
     await blockAdvertisers(page, advertisers);
 
     await page.waitForTimeout(3000);
     await page.goto('https://twitter.com/home');
-    // await page.waitForNavigation();
   }
 }
 
@@ -25,7 +29,7 @@ const twitterLogin = async (page) => {
   await page.waitForSelector('input[autocomplete="username"]');
   await page.type('input[autocomplete="username"]', process.env.TWITTER_USERNAME);
 
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(DELAY_LOGIN);
 
   await page.evaluate(() => {
     const nextButton = Array.from(document.querySelectorAll('span')).find(element => element.textContent === 'Next');
@@ -37,7 +41,7 @@ const twitterLogin = async (page) => {
   await page.waitForSelector('input[name="password"]');
   await page.type('input[name="password"]', process.env.TWITTER_PASSWORD);
 
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(DELAY_LOGIN);
 
   await page.evaluate(() => {
     const loginButton = Array.from(document.querySelectorAll('span')).find(element => element.textContent === 'Log in');
@@ -48,15 +52,11 @@ const twitterLogin = async (page) => {
 }
 
 const findAdvertisers = async (page, advertisers) => {
-  // await page.goto('https://twitter.com/home');
-  // await page.waitForNavigation();
-
-  while (advertisers.size < 1) {
+  await page.waitForTimeout(5000);
+  while (advertisers.size < HANDLES_PER_RUN) {
     await page.evaluate(() => {
       window.scrollBy(0, window.innerHeight);
     });
-
-    await page.waitForTimeout(5000);
 
     const tweetUrls = await page.evaluate(() => {
       const tweetNodes = Array.from(document.querySelectorAll('article'));
